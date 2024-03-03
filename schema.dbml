@@ -1,0 +1,27 @@
+Table books {
+  id bigserial [primary key]
+  title text [not null]
+  author text [not null]
+  year int [not null]
+  description text [not null]
+  genres text[] [not null]
+}
+
+Table users {
+  id bigserial [primary key]
+  username varchar(50) [not null, unique]
+  password text [not null]
+}
+
+// many-to-many
+Table reviews {
+  id bigserial [primary key]
+  created_at timestamp [not null, default: `now()`],
+  user_id bigserial [not null],
+  book_id bigserial [not null],
+  content text,
+  rating integer,
+}
+
+Ref: reviews.book_id < books.id
+Ref: reviews.user_id < users.id
