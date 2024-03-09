@@ -93,11 +93,11 @@ Table users {
 // many-to-many
 Table reviews {
   id bigserial [primary key]
-  created_at timestamp [not null, default: `now()`],
-  user_id bigserial [not null],
-  book_id bigserial [not null],
-  content text,
-  rating integer,
+  created_at timestamp [not null, default: `now()`]
+  user_id bigserial [not null]
+  book_id bigserial [not null]
+  content text
+  rating integer
 }
 
 Ref: reviews.book_id < books.id
