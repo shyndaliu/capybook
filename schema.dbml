@@ -9,8 +9,8 @@ Table books {
 
 Table users {
   id bigserial [primary key]
-  username varchar(50) [not null, unique]
-  password text [not null]
+  username citext [not null, unique]
+  password bytea [not null]
 }
 
 // many-to-many

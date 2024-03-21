@@ -75,3 +75,17 @@ func (app *application) readJSON(w http.ResponseWriter, r *http.Request, dst int
 	}
 	return nil
 }
+
+func (app *application) background(fn func()) {
+	// Launch a background goroutine.
+	go func() {
+		// Recover any panic.
+		defer func() {
+			if err := recover(); err != nil {
+				app.logger.Printf(fmt.Errorf("%s", err).Error(), nil)
+			}
+		}()
+		// Execute the arbitrary function that we passed as the parameter.
+		fn()
+	}()
+}

@@ -1,0 +1,39 @@
+{{define "subject"}}Welcome to CapyBook!{{end}}
+
+{{define "plainBody"}}
+Hi,
+
+Thanks for signing up for a Capybook account. We're excited to have you on board!
+
+You can find your verification code bellow.
+
+{{.verificationCode}}
+
+Please note that this is a one-time use code and it will expire in 3 days.
+
+Thanks,
+
+The CapyTeam
+{{end}}
+
+{{define "htmlBody"}}
+<!doctype html>
+<html>
+
+<head>
+    <meta name="viewport" content="width=device-width" />
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+</head>
+
+<body>
+    <p>Hi,</p>
+    <p>Thanks for signing up for a Capybook account. We're excited to have you on board!</p>
+    <p>You can find your verification code bellow.</p>
+    <p><b>{{.verificationCode}}</b></p>
+    <p>Please note that this is a one-time use code and it will expire in 3 days.</p>
+    <p>Thanks,</p>
+    <p>The CapyTeam</p>
+</body>
+
+</html>
+{{end}}

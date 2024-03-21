@@ -25,5 +25,12 @@ func (app *application) routes() *mux.Router {
 	v1.HandleFunc("/books/{id}", app.updateBookHandler).Methods("PATCH")
 	// Delete a specific book
 	v1.HandleFunc("/books/{id}", app.deleteBookHandler).Methods("DELETE")
+
+	//Users
+	//Register new user
+	v1.HandleFunc("/users", app.registerUserHandler).Methods("POST")
+
+	//Activate new user
+	v1.HandleFunc("/users/activated", app.activateUserHandler).Methods("POST")
 	return v1
 }

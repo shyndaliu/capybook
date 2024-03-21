@@ -6,12 +6,11 @@ import (
 	"net/http"
 
 	"github.com/shyndaliu/capybook/pkg/capybook/model"
+	"github.com/shyndaliu/capybook/pkg/capybook/validator"
 )
 
 func (app *application) healthcheckHandler(w http.ResponseWriter, r *http.Request) {
-	// Create a map which holds the information that we want to send in the response.
 	data := map[string]string{
-		// Use w.Write() to send the []byte slice containing the JSON as the response body.
 		"status": "Hello! Welcome to Capybook API",
 	}
 	err := app.writeJSON(w, http.StatusOK, data, nil)
@@ -40,6 +39,13 @@ func (app *application) createBookHandler(w http.ResponseWriter, r *http.Request
 		Description: input.Description,
 		Genres:      input.Genres,
 	}
+
+	v := validator.New()
+	if model.ValidateBook(v, book); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
 	err = app.models.Books.Insert(book)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)

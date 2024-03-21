@@ -3,8 +3,10 @@ package model
 import (
 	"database/sql"
 	"errors"
+	"time"
 
 	"github.com/lib/pq"
+	"github.com/shyndaliu/capybook/pkg/capybook/validator"
 )
 
 type BookModel struct {
@@ -110,4 +112,19 @@ func (b BookModel) Delete(id int64) error {
 		return ErrRecordNotFound
 	}
 	return nil
+}
+
+func ValidateBook(v *validator.Validator, book *Book) {
+	v.Check(book.Title != "", "title", "must be provided")
+	v.Check(len(book.Title) <= 200, "title", "must not be more than 200 bytes long")
+	v.Check(book.Author != "", "author", "must be provided")
+	v.Check(len(book.Author) <= 200, "author", "must not be more than 200 bytes long")
+	v.Check(book.Description != "", "description", "must be provided")
+	v.Check(len(book.Description) <= 500, "description", "must not be more than 500 bytes long")
+	v.Check(book.Year != 0, "year", "must be provided")
+	v.Check(book.Year <= int32(time.Now().Year()), "year", "must not be in the future")
+	v.Check(book.Genres != nil, "genres", "must be provided")
+	v.Check(len(book.Genres) >= 1, "genres", "must contain at least 1 genre")
+	v.Check(len(book.Genres) <= 5, "genres", "must not contain more than 5 genres")
+	v.Check(validator.Unique(book.Genres), "genres", "must not contain duplicate values")
 }
