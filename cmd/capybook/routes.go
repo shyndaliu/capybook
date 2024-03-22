@@ -12,7 +12,7 @@ func (app *application) routes() *mux.Router {
 	v1.NotFoundHandler = http.HandlerFunc(app.notFoundResponse)
 
 	//Healthcheck
-	v1.HandleFunc("/healthcheck", app.healthcheckHandler).Methods("GET")
+	v1.HandleFunc("/healthcheck", app.requireActivatedUser(app.healthcheckHandler)).Methods("GET")
 
 	// Book Singleton
 	// Create a new book
@@ -31,6 +31,8 @@ func (app *application) routes() *mux.Router {
 	v1.HandleFunc("/users", app.registerUserHandler).Methods("POST")
 
 	//Activate new user
-	v1.HandleFunc("/users/activated", app.activateUserHandler).Methods("POST")
+	v1.HandleFunc("/users/activated", app.activateUserHandler).Methods("PUT")
+	//Authenticate new user
+	v1.HandleFunc("/token/authentication", app.createAuthTokenHandler).Methods("POST")
 	return v1
 }

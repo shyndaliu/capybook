@@ -15,6 +15,8 @@ type UserModel struct {
 	DB *sql.DB
 }
 
+var AnonymousUser = &User{}
+
 type User struct {
 	ID        int64    `json:"id"`
 	Username  string   `json:"username"`
@@ -31,6 +33,10 @@ var (
 	ErrDuplicateEmail    = errors.New("duplicate email")
 	ErrDuplicateUsername = errors.New("duplicate username")
 )
+
+func (u *User) IsAnonymous() bool {
+	return u == AnonymousUser
+}
 
 func (u UserModel) Insert(user *User) error {
 	query := `
@@ -57,9 +63,32 @@ func (u UserModel) Insert(user *User) error {
 	return nil
 }
 
+func (m UserModel) GetByUsername(username string) (*User, error) {
+	query := `
+	SELECT id, username, email, password
+	FROM users
+	WHERE username = $1`
+	var user User
+	err := m.DB.QueryRow(query, username).Scan(
+		&user.ID,
+		&user.Username,
+		&user.Email,
+		&user.Password.hash,
+	)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return nil, ErrRecordNotFound
+		default:
+			return nil, err
+		}
+	}
+	return &user, nil
+}
+
 func (m UserModel) GetByEmail(email string) (*User, error) {
 	query := `
-	SELECT id, username, email, password_hash
+	SELECT id, username, email, password
 	FROM users
 	WHERE email = $1`
 	var user User
@@ -89,6 +118,38 @@ func (u UserModel) GetByVerificationCode(plaintext string) (*User, error) {
 	ON users.id = verifications.user_id
 	WHERE verifications.code = $1
 	AND verifications.expiry > $2`
+	args := []interface{}{hash[:], time.Now()}
+	var user User
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	err := u.DB.QueryRowContext(ctx, query, args...).Scan(
+		&user.ID,
+		&user.Username,
+		&user.Email,
+		&user.Password.hash,
+		&user.Activated,
+	)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return nil, ErrRecordNotFound
+		default:
+			return nil, err
+		}
+	}
+	return &user, nil
+
+}
+
+func (u UserModel) GetByAuthToken(plaintext string) (*User, error) {
+	hash := sha256.Sum256([]byte(plaintext))
+	query := `
+	SELECT users.id, users.username, users.email, users.password, users.activated
+	FROM users
+	INNER JOIN temporary
+	ON users.id = temporary.user_id
+	WHERE temporary.code = $1
+	AND temporary.expiry > $2`
 	args := []interface{}{hash[:], time.Now()}
 	var user User
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -158,15 +219,26 @@ func ValidateEmail(v *validator.Validator, email string) {
 	v.Check(email != "", "email", "must be provided")
 	v.Check(validator.Matches(email, validator.EmailRX), "email", "must be a valid email address")
 }
+func ValidateUsername(v *validator.Validator, username string) {
+	v.Check(username != "", "username", "must be provided")
+	v.Check(validator.Matches(username, validator.UsernameRX), "username", "must be a valid username")
+}
 func ValidatePasswordPlaintext(v *validator.Validator, password string) {
 	v.Check(password != "", "password", "must be provided")
 	v.Check(len(password) >= 8, "password", "must be at least 8 bytes long")
 	v.Check(len(password) <= 72, "password", "must not be more than 72 bytes long")
 }
-func ValidateUser(v *validator.Validator, user *User) {
-	v.Check(user.Username != "", "username", "must be provided")
-	v.Check(validator.Matches(user.Username, validator.UsernameRX), "username", "must be a valid username address")
 
+func ValidateEmailOrUsername(v *validator.Validator, username string, email string) {
+	v1 := validator.New()
+	ValidateUsername(v1, username)
+	v2 := validator.New()
+	ValidateEmail(v2, email)
+	v.Check(v1.Valid() || v2.Valid(), "error", "valid username or email must be provided")
+}
+
+func ValidateUser(v *validator.Validator, user *User) {
+	ValidateUsername(v, user.Username)
 	ValidateEmail(v, user.Email)
 	if user.Password.plaintext != nil {
 		ValidatePasswordPlaintext(v, *user.Password.plaintext)

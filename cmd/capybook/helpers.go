@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,7 +11,12 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/shyndaliu/capybook/pkg/capybook/model"
 )
+
+type contextKey string
+
+const userContextKey = contextKey("user")
 
 func (app *application) readIDParam(r *http.Request) (int64, error) {
 	param := mux.Vars(r)["id"]
@@ -74,6 +80,19 @@ func (app *application) readJSON(w http.ResponseWriter, r *http.Request, dst int
 		return errors.New("body must only contain a single JSON value")
 	}
 	return nil
+}
+
+func (app *application) contextSetUser(r *http.Request, user *model.User) *http.Request {
+	ctx := context.WithValue(r.Context(), userContextKey, user)
+	return r.WithContext(ctx)
+}
+
+func (app *application) contextGetUser(r *http.Request) *model.User {
+	user, ok := r.Context().Value(userContextKey).(*model.User)
+	if !ok {
+		panic("missing user value in request context")
+	}
+	return user
 }
 
 func (app *application) background(fn func()) {
