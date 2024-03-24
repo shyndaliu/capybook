@@ -15,6 +15,7 @@ type Models struct {
 	Users         UserModel
 	Verifications VerificationModel
 	Permissions   PermissionModel
+	Reviews       ReviewModel
 }
 
 func NewModels(db *sql.DB) Models {
@@ -23,5 +24,6 @@ func NewModels(db *sql.DB) Models {
 		Users:         UserModel{DB: db},
 		Verifications: VerificationModel{DB: db},
 		Permissions:   PermissionModel{DB: db},
+		Reviews:       ReviewModel{DB: db},
 	}
 }

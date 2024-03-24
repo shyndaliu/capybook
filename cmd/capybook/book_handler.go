@@ -59,13 +59,50 @@ func (app *application) createBookHandler(w http.ResponseWriter, r *http.Request
 		app.serverErrorResponse(w, r, err)
 	}
 }
+func (app *application) listBooksHandler(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Title  string
+		Author string
+		Genres []string
+		model.Filters
+	}
+	v := validator.New()
+	qs := r.URL.Query()
+
+	input.Title = app.readString(qs, "title", "")
+	input.Author = app.readString(qs, "author", "")
+	input.Genres = app.readCSV(qs, "genres", []string{})
+	input.Filters.Page = app.readInt(qs, "page", 1, v)
+	input.Filters.Limit = app.readInt(qs, "limit", 20, v)
+	input.Filters.Sort = app.readString(qs, "sort", "id")
+	input.Filters.SortSafelist = []string{"id", "title", "year", "author", "-id", "-title", "-year", "author"}
+
+	model.ValidateFilters(v, input.Filters)
+
+	if !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+	// Call the GetAll() method to retrieve the movies, passing in the various filter
+	// parameters.
+	books, err := app.models.Books.GetAll(input.Title, input.Author, input.Genres, input.Filters)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+	// Send a JSON response containing the movie data.
+	err = app.writeJSON(w, http.StatusOK, envelope{"books": books}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
 func (app *application) getBookHandler(w http.ResponseWriter, r *http.Request) {
 	id, err := app.readIDParam(r)
 	if err != nil {
 		app.notFoundResponse(w, r)
 		return
 	}
-	movie, err := app.models.Books.Get(id)
+	book, err := app.models.Books.Get(id)
 	if err != nil {
 		switch {
 		case errors.Is(err, model.ErrRecordNotFound):
@@ -75,7 +112,7 @@ func (app *application) getBookHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	err = app.writeJSON(w, http.StatusOK, envelope{"movie": movie}, nil)
+	err = app.writeJSON(w, http.StatusOK, envelope{"book": book}, nil)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 	}

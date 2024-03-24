@@ -1,8 +1,10 @@
 package model
 
 import (
+	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/lib/pq"
@@ -29,6 +31,49 @@ func (b BookModel) Insert(book *Book) error {
 	RETURNING id`
 	args := []interface{}{book.Title, book.Author, book.Year, book.Description, pq.Array(book.Genres)}
 	return b.DB.QueryRow(query, args...).Scan(&book.ID)
+}
+
+func (b BookModel) GetAll(title string, author string, genres []string, filters Filters) ([]*Book, error) {
+	query := fmt.Sprintf(`
+	SELECT id,  title, author,  year, description, genres
+	FROM books
+	WHERE (LOWER(title) = LOWER($1) OR $1 = '')
+	AND (LOWER(author) = LOWER($2) OR $2 = '')
+	AND (genres @> $3 OR $3 = '{}')
+	ORDER BY %s %s, id ASC
+	LIMIT $4 OFFSET $5`, filters.sortColumn(), filters.sortDirection())
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	// Pass the title and genres as the placeholder parameter values.
+	rows, err := b.DB.QueryContext(ctx, query, title, author, pq.Array(genres), filters.Limit, filters.offset())
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	books := []*Book{}
+	for rows.Next() {
+		var book Book
+		err := rows.Scan(
+			&book.ID,
+			&book.Title,
+			&book.Author,
+			&book.Year,
+			&book.Description,
+			pq.Array(&book.Genres),
+		)
+		if err != nil {
+			return nil, err
+		}
+		books = append(books, &book)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return books, nil
 }
 
 func (b BookModel) Get(id int64) (*Book, error) {

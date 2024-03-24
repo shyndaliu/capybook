@@ -77,6 +77,102 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 	}
 }
 
+func (app *application) getUserHandler(w http.ResponseWriter, r *http.Request) {
+	username, _ := app.readUsernameParam(r)
+	v := validator.New()
+	model.ValidateUsername(v, username)
+	if !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+	user, err := app.models.Users.GetByUsername(username)
+	if err != nil {
+		switch {
+		case errors.Is(err, model.ErrRecordNotFound):
+			app.notFoundResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
+	}
+	err = app.writeJSON(w, http.StatusOK, envelope{"user": user}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
+func (app *application) updateUserHandler(w http.ResponseWriter, r *http.Request) {
+	username, _ := app.readUsernameParam(r)
+	v := validator.New()
+	model.ValidateUsername(v, username)
+	if !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+
+	}
+	user, err := app.models.Users.GetByUsername(username)
+	if err != nil {
+		switch {
+		case errors.Is(err, model.ErrRecordNotFound):
+			app.notFoundResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
+	}
+	var input struct {
+		Password *string `json:"password"`
+	}
+	err = app.readJSON(w, r, &input)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+	model.ValidatePasswordPlaintext(v, *input.Password)
+	if !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+	err = user.Password.Set(*input.Password)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+	err = app.models.Users.Update(user)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+	err = app.writeJSON(w, http.StatusOK, envelope{"user": user}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
+func (app *application) deleteUserHandler(w http.ResponseWriter, r *http.Request) {
+	username, _ := app.readUsernameParam(r)
+	v := validator.New()
+	model.ValidateUsername(v, username)
+	if !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+	err := app.models.Users.Delete(username)
+	if err != nil {
+		switch {
+		case errors.Is(err, model.ErrRecordNotFound):
+			app.notFoundResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
+	}
+	err = app.writeJSON(w, http.StatusOK, envelope{"message": "user successfully deleted"}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}
+
 func (app *application) activateUserHandler(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		PlainTextCode string `json:"code"`

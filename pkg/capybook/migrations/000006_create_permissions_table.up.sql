@@ -10,5 +10,7 @@ PRIMARY KEY (user_id, permission_id)
 -- Add the two permissions to the table.
 INSERT INTO permissions (code)
 VALUES
-('books:read'),
-('books:write');
+('books:write'),
+('users:write'),
+('reviews:write');
+

@@ -18,11 +18,11 @@ type UserModel struct {
 var AnonymousUser = &User{}
 
 type User struct {
-	ID        int64    `json:"id"`
+	ID        int64    `json:"-"`
 	Username  string   `json:"username"`
 	Email     string   `json:"email"`
 	Password  password `json:"-"`
-	Activated bool     `json:"activated"`
+	Activated bool     `json:"-"`
 }
 type password struct {
 	plaintext *string
@@ -63,11 +63,34 @@ func (u UserModel) Insert(user *User) error {
 	return nil
 }
 
+func (m UserModel) GetByID(id int64) (*User, error) {
+	query := `
+	SELECT id, username, email, password
+	FROM users
+	WHERE id = $1`
+	var user User
+	err := m.DB.QueryRow(query, id).Scan(
+		&user.ID,
+		&user.Username,
+		&user.Email,
+		&user.Password.hash,
+	)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return nil, ErrRecordNotFound
+		default:
+			return nil, err
+		}
+	}
+	return &user, nil
+}
+
 func (m UserModel) GetByUsername(username string) (*User, error) {
 	query := `
 	SELECT id, username, email, password
 	FROM users
-	WHERE username = $1`
+	WHERE username = lower($1)`
 	var user User
 	err := m.DB.QueryRow(query, username).Scan(
 		&user.ID,
@@ -189,6 +212,24 @@ func (m UserModel) Update(user *User) error {
 	err := m.DB.QueryRow(query, args...).Scan()
 	if errors.Is(err, sql.ErrNoRows) {
 		return ErrEditConflict
+	}
+	return nil
+}
+
+func (u UserModel) Delete(username string) error {
+	query := `
+		DELETE FROM users
+		WHERE username = $1`
+	result, err := u.DB.Exec(query, username)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return ErrRecordNotFound
 	}
 	return nil
 }
