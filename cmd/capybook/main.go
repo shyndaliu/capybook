@@ -12,6 +12,7 @@ import (
 
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
+	"github.com/shyndaliu/capybook/pkg/capybook/auth"
 	"github.com/shyndaliu/capybook/pkg/capybook/mailer"
 	"github.com/shyndaliu/capybook/pkg/capybook/model"
 )
@@ -31,6 +32,9 @@ type config struct {
 		password string
 		sender   string
 	}
+	jwt struct {
+		secret string
+	}
 }
 
 type application struct {
@@ -38,6 +42,7 @@ type application struct {
 	logger *log.Logger
 	models model.Models
 	mailer mailer.Mailer
+	auth   auth.AuthService
 }
 
 func main() {
@@ -58,6 +63,8 @@ func main() {
 	flag.StringVar(&cfg.smtp.username, "smtp-username", os.Getenv("SMTP_USERNAME"), "SMTP username")
 	flag.StringVar(&cfg.smtp.password, "smtp-password", os.Getenv("SMTP_PASSWORD"), "SMTP password")
 	flag.StringVar(&cfg.smtp.sender, "smtp-sender", "Capybook <no-reply@capybook.net>", "SMTP sender")
+
+	flag.StringVar(&cfg.jwt.secret, "jwt-secret", os.Getenv("JWT_SECRET"), "JWT secret")
 
 	flag.Parse()
 

@@ -26,6 +26,7 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 		Username:  input.Username,
 		Email:     input.Email,
 		Activated: false,
+		TokenHash: app.auth.GenerateRandomString(15),
 	}
 
 	err = user.Password.Set(input.Password)
@@ -134,6 +135,7 @@ func (app *application) updateUserHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 	err = user.Password.Set(*input.Password)
+	user.TokenHash = app.auth.GenerateRandomString(15)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -224,68 +226,4 @@ func (app *application) activateUserHandler(w http.ResponseWriter, r *http.Reque
 		app.serverErrorResponse(w, r, err)
 	}
 
-}
-
-func (app *application) createAuthTokenHandler(w http.ResponseWriter, r *http.Request) {
-	var input struct {
-		Username string `json:"username"`
-		Email    string `json:"email"`
-		Password string `json:"password"`
-	}
-	err := app.readJSON(w, r, &input)
-	if err != nil {
-		app.badRequestResponse(w, r, err)
-		return
-	}
-	v := validator.New()
-	model.ValidatePasswordPlaintext(v, input.Password)
-	model.ValidateEmailOrUsername(v, input.Username, input.Email)
-	if !v.Valid() {
-		app.failedValidationResponse(w, r, v.Errors)
-		return
-	}
-	model.ValidateUsername(v, input.Username)
-	usernameValid := v.Valid()
-	model.ValidateEmail(v, input.Email)
-	emailValid := v.Valid()
-	if !usernameValid && !emailValid {
-		app.failedValidationResponse(w, r, v.Errors)
-		return
-	}
-
-	var user *model.User
-	if emailValid {
-		user, err = app.models.Users.GetByEmail(input.Email)
-	} else {
-		user, err = app.models.Users.GetByUsername(input.Username)
-	}
-	if err != nil {
-		switch {
-		case errors.Is(err, model.ErrRecordNotFound):
-			app.invalidCredentialsResponse(w, r)
-		default:
-			app.serverErrorResponse(w, r, err)
-		}
-		return
-	}
-
-	match, err := user.Password.Matches(input.Password)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-		return
-	}
-
-	if !match {
-		app.invalidCredentialsResponse(w, r)
-		return
-	}
-	token, err := app.models.Verifications.NewTemp(user.ID, 24*time.Hour)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-		return
-	}
-	err = app.writeJSON(w, http.StatusCreated, envelope{"authentication_token": token}, nil)
-	if err != nil {
-		app.serverErrorResponse(w, r, err)
-	}
 }

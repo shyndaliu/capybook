@@ -39,7 +39,8 @@ func (app *application) routes() *mux.Router {
 	//Activate new user
 	v1.HandleFunc("/users/activated", app.activateUserHandler).Methods("PUT")
 	//Authenticate new user
-	v1.HandleFunc("/token/authentication", app.createAuthTokenHandler).Methods("POST")
+	v1.HandleFunc("/token", app.createAuthTokenHandler).Methods("GET")
+	v1.HandleFunc("/token/refresh", app.refreshTokenandler).Methods("GET")
 
 	//Reviews
 	//Post new review

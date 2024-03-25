@@ -22,6 +22,7 @@ type User struct {
 	Username  string   `json:"username"`
 	Email     string   `json:"email"`
 	Password  password `json:"-"`
+	TokenHash string   `json:"-"`
 	Activated bool     `json:"-"`
 }
 type password struct {
@@ -40,10 +41,10 @@ func (u *User) IsAnonymous() bool {
 
 func (u UserModel) Insert(user *User) error {
 	query := `
-	INSERT INTO users (username,email, password)
-	VALUES ($1, $2, $3)
+	INSERT INTO users (username,email, password, token_hash)
+	VALUES ($1, $2, $3, $4)
 	RETURNING id`
-	args := []interface{}{user.Username, user.Email, user.Password.hash}
+	args := []interface{}{user.Username, user.Email, user.Password.hash, user.TokenHash}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -199,8 +200,8 @@ func (u UserModel) GetByAuthToken(plaintext string) (*User, error) {
 func (m UserModel) Update(user *User) error {
 	query := `
 	UPDATE users
-	SET username = $1, email = $2, password = $3, activated = $4
-	WHERE id = $5 
+	SET username = $1, email = $2, password = $3, activated = $4, token_hash=$5
+	WHERE id = $6 
 	RETURNING id`
 	args := []interface{}{
 		user.Username,
@@ -208,6 +209,7 @@ func (m UserModel) Update(user *User) error {
 		user.Password.hash,
 		user.Activated,
 		user.ID,
+		user.TokenHash,
 	}
 	err := m.DB.QueryRow(query, args...).Scan()
 	if errors.Is(err, sql.ErrNoRows) {
