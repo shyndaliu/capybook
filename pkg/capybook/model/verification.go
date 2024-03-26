@@ -80,23 +80,3 @@ func ValidateVerificationCode(v *validator.Validator, plainTextCode string) {
 	v.Check(plainTextCode != "", "code", "must be provided")
 	v.Check(len(plainTextCode) == 26, "code", "must be 26 bytes long")
 }
-
-func (v VerificationModel) NewTemp(userId int64, ttl time.Duration) (*Verification, error) {
-	newVer, err := generateVerificationCode(userId, ttl)
-	if err != nil {
-		return nil, err
-	}
-
-	query := `
-	INSERT INTO temporary (code, user_id, expiry)
-	VALUES ($1, $2, $3)`
-	args := []interface{}{newVer.Code, newVer.UserID, newVer.Expiry}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	_, err = v.DB.ExecContext(ctx, query, args...)
-	if err != nil {
-		return nil, err
-	}
-	return newVer, nil
-
-}

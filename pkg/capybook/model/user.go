@@ -208,8 +208,8 @@ func (m UserModel) Update(user *User) error {
 		user.Email,
 		user.Password.hash,
 		user.Activated,
-		user.ID,
 		user.TokenHash,
+		user.ID,
 	}
 	err := m.DB.QueryRow(query, args...).Scan()
 	if errors.Is(err, sql.ErrNoRows) {

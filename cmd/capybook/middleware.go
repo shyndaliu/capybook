@@ -1,15 +1,14 @@
 package main
 
 import (
-	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/shyndaliu/capybook/pkg/capybook/model"
-	"github.com/shyndaliu/capybook/pkg/capybook/validator"
 )
 
-func (app *application) authenticate(next http.Handler) http.Handler {
+func (app *application) authenticate(next http.Handler) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		w.Header().Add("Vary", "Authorization")
@@ -26,22 +25,42 @@ func (app *application) authenticate(next http.Handler) http.Handler {
 			return
 		}
 		token := headerParts[1]
-		v := validator.New()
-		if model.ValidateVerificationCode(v, token); !v.Valid() {
-			app.invalidAuthenticationTokenResponse(w, r)
-			return
-		}
-		user, err := app.models.Users.GetByAuthToken(token)
-		if err != nil {
-			switch {
-			case errors.Is(err, model.ErrRecordNotFound):
-				app.invalidAuthenticationTokenResponse(w, r)
-			default:
+
+		if r.URL.Path == "/api/v1/token/refresh" {
+			fmt.Print(token)
+			userRefresh, err := app.auth.ValidateRefreshToken(token)
+			if err != nil {
 				app.serverErrorResponse(w, r, err)
+				return
 			}
-			return
+
+			user, err := app.models.Users.GetByUsername(userRefresh.Username)
+			if err != nil {
+				app.serverErrorResponse(w, r, err)
+				return
+			}
+
+			actualCustomKey := app.auth.GenerateCustomKey(user.Username, user.TokenHash)
+			if userRefresh.CustomKey != actualCustomKey {
+				app.invalidAuthenticationTokenResponse(w, r)
+				return
+			}
+			r = app.contextSetUser(r, user)
+
+		} else {
+			userAccess, err := app.auth.ValidateAccessToken(token)
+			if err != nil {
+				app.serverErrorResponse(w, r, err)
+				return
+			}
+			user, err := app.models.Users.GetByUsername(userAccess.Username)
+			if err != nil {
+				app.serverErrorResponse(w, r, err)
+				return
+			}
+			r = app.contextSetUser(r, user)
+
 		}
-		r = app.contextSetUser(r, user)
 		next.ServeHTTP(w, r)
 	})
 }

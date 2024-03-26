@@ -3,9 +3,10 @@ package auth
 import (
 	"crypto/hmac"
 	"crypto/sha256"
-	"encoding/base32"
 	"encoding/hex"
 	"errors"
+	"math/rand"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
@@ -46,9 +47,9 @@ func (auth *AuthService) GenerateRefreshToken(user *model.User) (string, error) 
 		},
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
-	return token.SignedString((auth.signKey))
+	return token.SignedString([]byte(auth.signKey))
 }
 func (auth *AuthService) GenerateAccessToken(user *model.User) (string, error) {
 
@@ -61,26 +62,23 @@ func (auth *AuthService) GenerateAccessToken(user *model.User) (string, error) {
 		},
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
-	return token.SignedString((auth.signKey))
+	return token.SignedString([]byte(auth.signKey))
 }
 
-func (auth *AuthService) GenerateCustomKey(userID string, tokenHash string) string {
+func (auth *AuthService) GenerateCustomKey(username string, tokenHash string) string {
 
 	h := hmac.New(sha256.New, []byte(tokenHash))
-	h.Write([]byte(userID))
+	h.Write([]byte(username))
 	sha := hex.EncodeToString(h.Sum(nil))
 	return sha
 }
-func (auth *AuthService) GenerateRandomString(n int) string {
-	ans := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(make([]byte, n))
-	return ans
-}
+
 func (auth *AuthService) ValidateAccessToken(tokenString string) (*AccessTokenCustomClaims, error) {
 
 	token, err := jwt.ParseWithClaims(tokenString, &AccessTokenCustomClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return auth.signKey, nil
+		return []byte(auth.signKey), nil
 	})
 
 	if err != nil {
@@ -97,7 +95,7 @@ func (auth *AuthService) ValidateAccessToken(tokenString string) (*AccessTokenCu
 func (auth *AuthService) ValidateRefreshToken(tokenString string) (*RefreshTokenCustomClaims, error) {
 
 	token, err := jwt.ParseWithClaims(tokenString, &RefreshTokenCustomClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return auth.signKey, nil
+		return []byte(auth.signKey), nil
 	})
 
 	if err != nil {
@@ -109,4 +107,17 @@ func (auth *AuthService) ValidateRefreshToken(tokenString string) (*RefreshToken
 		return nil, errors.New("invalid token: authentication failed")
 	}
 	return claims, nil
+}
+
+const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+// GenerateRandomString generate a string of random characters of given length
+func (auth *AuthService) GenerateRandomString(n int) string {
+	sb := strings.Builder{}
+	sb.Grow(n)
+	for i := 0; i < n; i++ {
+		idx := rand.Int63() % int64(len(letterBytes))
+		sb.WriteByte(letterBytes[idx])
+	}
+	return sb.String()
 }

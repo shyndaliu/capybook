@@ -51,5 +51,6 @@ func (app *application) routes() *mux.Router {
 	v1.HandleFunc("/books/{id}/reviews", app.updateReviewHandler).Methods("PATCH")
 	//Delete review
 	v1.HandleFunc("/books/{id}/reviews", app.deleteReviewHandler).Methods("DELETE")
+
 	return v1
 }
